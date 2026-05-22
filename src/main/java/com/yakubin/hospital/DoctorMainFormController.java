@@ -809,144 +809,134 @@ public class DoctorMainFormController implements Initializable {
         connect = Database.connectDB();
 
         try {
-            int appointmentID = Integer.parseInt(appointment_appointmentID.getText());
-            long patientID = Long.parseLong(appointment_PatientId.getText());
+
+            int appointmentID =
+                    Integer.parseInt(appointment_appointmentID.getText());
+
+            long patientID =
+                    Long.parseLong(appointment_PatientId.getText());
 
             LocalDate date = appointment_schedule.getValue();
-            LocalTime time = LocalTime.parse(appointment_time.getSelectionModel().getSelectedItem());
 
-            LocalDateTime scheduleDateTime = LocalDateTime.of(date, time);
-            Timestamp scheduleTimestamp = Timestamp.valueOf(scheduleDateTime);
+            LocalTime time =
+                    LocalTime.parse(
+                            appointment_time.getSelectionModel()
+                                    .getSelectedItem()
+                    );
+
+            LocalDateTime scheduleDateTime =
+                    LocalDateTime.of(date, time);
+
+            Timestamp scheduleTimestamp =
+                    Timestamp.valueOf(scheduleDateTime);
 
             if (scheduleDateTime.isBefore(LocalDateTime.now())) {
-                alert.errorMessage("You cannot set an appointment in the past");
+                alert.errorMessage(
+                        "You cannot set an appointment in the past"
+                );
                 return;
             }
-
-            String checkPatient =
-                    "SELECT full_name, gender, mobile_number, address "
-                            + "FROM patient "
-                            + "WHERE patient_id = ? AND date_delete IS NULL";
-
-            prepare = connect.prepareStatement(checkPatient);
-            prepare.setLong(1, patientID);
-            result = prepare.executeQuery();
-
-            if (!result.next()) {
-                alert.errorMessage("Patient ID not found");
-                return;
-            }
-
-            appointment_name.setText(result.getString("full_name"));
-            appointment_gender.getSelectionModel().select(result.getString("gender"));
-            appointment_mobileNumber.setText(result.getString("mobile_number"));
-            appointment_address.setText(result.getString("address"));
 
             String checkSchedule =
                     "SELECT id FROM appointment "
                             + "WHERE doctor = ? "
                             + "AND schedule = ? "
-                            + "AND appointment_id <> ? "
+                            + "AND NOT (appointment_id = ? "
+                            + "AND patient_id = ?) "
                             + "AND date_delete IS NULL";
 
             prepare = connect.prepareStatement(checkSchedule);
+
             prepare.setString(1, Data.doctor_id);
             prepare.setTimestamp(2, scheduleTimestamp);
             prepare.setInt(3, appointmentID);
+            prepare.setLong(4, patientID);
+
             result = prepare.executeQuery();
 
             if (result.next()) {
-                alert.errorMessage("Appointment time already taken!");
+                alert.errorMessage(
+                        "Appointment time already taken!"
+                );
                 return;
             }
 
             String getDoctorData =
-                    "SELECT specialized FROM doctor WHERE doctor_id = ?";
+                    "SELECT specialized FROM doctor "
+                            + "WHERE doctor_id = ?";
 
             String getSpecialized = "";
 
             prepare = connect.prepareStatement(getDoctorData);
+
             prepare.setString(1, Data.doctor_id);
+
             result = prepare.executeQuery();
 
             if (result.next()) {
-                getSpecialized = result.getString("specialized");
+                getSpecialized =
+                        result.getString("specialized");
             }
 
-            java.sql.Date sqlDate = new java.sql.Date(System.currentTimeMillis());
+            java.sql.Date sqlDate =
+                    new java.sql.Date(
+                            System.currentTimeMillis()
+                    );
 
-            String checkAppointment =
-                    "SELECT id FROM appointment "
+            String updateData =
+                    "UPDATE appointment SET "
+                            + "name = ?, "
+                            + "gender = ?, "
+                            + "mobile_number = ?, "
+                            + "description = ?, "
+                            + "diagnosis = ?, "
+                            + "treatment = ?, "
+                            + "address = ?, "
+                            + "status = ?, "
+                            + "specialized = ?, "
+                            + "schedule = ?, "
+                            + "date_modify = ? "
                             + "WHERE appointment_id = ? "
-                            + "AND date_delete IS NULL";
+                            + "AND patient_id = ?";
 
-            prepare = connect.prepareStatement(checkAppointment);
-            prepare.setInt(1, appointmentID);
-            result = prepare.executeQuery();
+            prepare = connect.prepareStatement(updateData);
 
-            boolean appointmentExists = result.next();
+            prepare.setString(1, appointment_name.getText());
+            prepare.setString(2,
+                    appointment_gender.getSelectionModel()
+                            .getSelectedItem());
 
-            if (appointmentExists) {
+            prepare.setString(3,
+                    appointment_mobileNumber.getText());
 
-                String updateData =
-                        "UPDATE appointment SET "
-                                + "patient_id = ?, "
-                                + "name = ?, "
-                                + "gender = ?, "
-                                + "mobile_number = ?, "
-                                + "description = ?, "
-                                + "diagnosis = ?, "
-                                + "treatment = ?, "
-                                + "address = ?, "
-                                + "status = ?, "
-                                + "schedule = ?, "
-                                + "date_modify = ? "
-                                + "WHERE appointment_id = ?";
+            prepare.setString(4,
+                    appointment_description.getText());
 
-                prepare = connect.prepareStatement(updateData);
+            prepare.setString(5,
+                    appointment_diagnosis.getText());
 
-                prepare.setLong(1, patientID);
-                prepare.setString(2, appointment_name.getText());
-                prepare.setString(3, appointment_gender.getSelectionModel().getSelectedItem());
-                prepare.setString(4, appointment_mobileNumber.getText());
-                prepare.setString(5, appointment_description.getText());
-                prepare.setString(6, appointment_diagnosis.getText());
-                prepare.setString(7, appointment_treatment.getText());
-                prepare.setString(8, appointment_address.getText());
-                prepare.setString(9, appointment_status.getSelectionModel().getSelectedItem());
-                prepare.setTimestamp(10, scheduleTimestamp);
-                prepare.setDate(11, sqlDate);
-                prepare.setInt(12, appointmentID);
+            prepare.setString(6,
+                    appointment_treatment.getText());
 
-                prepare.executeUpdate();
+            prepare.setString(7,
+                    appointment_address.getText());
 
-            } else {
+            prepare.setString(8,
+                    appointment_status.getSelectionModel()
+                            .getSelectedItem());
 
-                String insertData =
-                        "INSERT INTO appointment "
-                                + "(appointment_id, patient_id, name, gender, description, diagnosis, treatment, "
-                                + "mobile_number, address, date, status, doctor, specialized, schedule) "
-                                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            prepare.setString(9, getSpecialized);
 
-                prepare = connect.prepareStatement(insertData);
+            prepare.setTimestamp(10, scheduleTimestamp);
 
-                prepare.setInt(1, appointmentID);
-                prepare.setLong(2, patientID);
-                prepare.setString(3, appointment_name.getText());
-                prepare.setString(4, appointment_gender.getSelectionModel().getSelectedItem());
-                prepare.setString(5, appointment_description.getText());
-                prepare.setString(6, appointment_diagnosis.getText());
-                prepare.setString(7, appointment_treatment.getText());
-                prepare.setString(8, appointment_mobileNumber.getText());
-                prepare.setString(9, appointment_address.getText());
-                prepare.setDate(10, sqlDate);
-                prepare.setString(11, appointment_status.getSelectionModel().getSelectedItem());
-                prepare.setString(12, Data.doctor_id);
-                prepare.setString(13, getSpecialized);
-                prepare.setTimestamp(14, scheduleTimestamp);
+            prepare.setDate(11, sqlDate);
 
-                prepare.executeUpdate();
-            }
+            prepare.setInt(12, appointmentID);
+
+            prepare.setLong(13, patientID);
+
+            prepare.executeUpdate();
+
             String updatePatient =
                     "UPDATE patient SET "
                             + "description = ?, "
@@ -957,24 +947,39 @@ public class DoctorMainFormController implements Initializable {
 
             prepare = connect.prepareStatement(updatePatient);
 
-            prepare.setString(1, appointment_description.getText());
-            prepare.setString(2, appointment_diagnosis.getText());
-            prepare.setString(3, appointment_treatment.getText());
+            prepare.setString(1,
+                    appointment_description.getText());
+
+            prepare.setString(2,
+                    appointment_diagnosis.getText());
+
+            prepare.setString(3,
+                    appointment_treatment.getText());
+
             prepare.setDate(4, sqlDate);
+
             prepare.setLong(5, patientID);
 
             prepare.executeUpdate();
-            prepare.executeUpdate();
 
             appointmentClearBtn();
+
             refreshAppointmentForm();
 
-            alert.successMessage("Successfully Updated!");
+            alert.successMessage(
+                    "Successfully Updated!"
+            );
 
         } catch (NumberFormatException e) {
-            alert.errorMessage("Appointment ID and Patient ID must be numbers");
+
+            alert.errorMessage(
+                    "Appointment ID and Patient ID must be numbers"
+            );
+
         } catch (Exception e) {
+
             e.printStackTrace();
+
         }
     }
 
